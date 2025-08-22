@@ -1,0 +1,151 @@
+import { Link } from "react-router-dom";
+
+function Navbar() {
+  return (
+    <nav style={{ padding: "10px", background: "#333", color: "#fff" }}>
+      <Link to="/" style={{ color: "white", marginRight: "20px" }}>Home</Link>
+      <Link to="/add" style={{ color: "white" }}>Add Item</Link>
+    </nav>
+  );
+}
+
+export default Navbar;
+
+
+import { useEffect, useState } from "react";
+
+function ItemList() {
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/items")
+      .then(res => res.json())
+      .then(data => setItems(data));
+  }, []);
+
+  const deleteItem = async (id) => {
+    await fetch(`http://localhost:5000/items/${id}`, { method: "DELETE" });
+    setItems(items.filter(item => item._id !== id));
+  };
+
+  return (
+    <div>
+      <h2>All Items</h2>
+      <ul>
+        {items.map(item => (
+          <li key={item._id}>
+            {item.name} - {item.description}
+            <button onClick={() => deleteItem(item._id)}>❌</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default ItemList;
+
+
+
+import { useState } from "react";
+
+function AddItem() {
+  const [form, setForm] = useState({ name: "", description: "" });
+
+  const addItem = async () => {
+    await fetch("http://localhost:5000/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    alert("Item Added Successfully!");
+    setForm({ name: "", description: "" });
+  };
+
+  return (
+    <div>
+      <h2>Add New Item</h2>
+      <input
+        placeholder="Name"
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+      />
+      <input
+        placeholder="Description"
+        value={form.description}
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
+      <button onClick={addItem}>Add</button>
+    </div>
+  );
+}
+
+export default AddItem;
+
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import ItemList from "./components/ItemList";
+import AddItem from "./components/AddItem";
+
+function App() {
+  return (
+    <Router>
+      <Navbar />
+      <div style={{ padding: "20px" }}>
+        <Routes>
+          <Route path="/" element={<ItemList />} />
+          <Route path="/add" element={<AddItem />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+// MongoDB connect
+mongoose.connect("mongodb://127.0.0.1:27017/assessmentDB")
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
+
+// Schema
+const ItemSchema = new mongoose.Schema({
+  name: String,
+  description: String
+});
+const Item = mongoose.model("Item", ItemSchema);
+
+// Routes
+app.get("/items", async (req, res) => {
+  const items = await Item.find();
+  res.json(items);
+});
+
+app.post("/items", async (req, res) => {
+  const newItem = new Item(req.body);
+  await newItem.save();
+  res.json(newItem);
+});
+
+app.delete("/items/:id", async (req, res) => {
+  await Item.findByIdAndDelete(req.params.id);
+  res.json({ message: "Deleted" });
+});
+
+app.listen(5000, () => console.log("Server running on port 5000"));
